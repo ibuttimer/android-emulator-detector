@@ -1,1 +1,3 @@
-include ':samples', ':library'
+// include samples module to build sample app
+//include ':samples', ':library'
+include ':library'

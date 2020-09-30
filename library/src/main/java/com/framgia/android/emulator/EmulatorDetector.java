@@ -8,7 +8,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
-import android.support.v4.content.ContextCompat;
+import androidx.core.content.ContextCompat;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
@@ -187,13 +187,18 @@ public final class EmulatorDetector {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                boolean isEmulator = detect();
-                log("This System is Emulator: " + isEmulator);
+                boolean isEmulator = detectSync();
                 if (pOnEmulatorDetectorListener != null) {
                     pOnEmulatorDetectorListener.onResult(isEmulator);
                 }
             }
         }).start();
+    }
+
+    public boolean detectSync() {
+        boolean isEmulator = detect();
+        log("This System is Emulator: " + isEmulator);
+        return isEmulator;
     }
 
     private boolean detect() {
@@ -202,10 +207,8 @@ public final class EmulatorDetector {
         log(getDeviceInfo());
 
         // Check Basic
-        if (!result) {
-            result = checkBasic();
-            log("Check basic " + result);
-        }
+        result = checkBasic();
+        log("Check basic " + result);
 
         // Check Advanced
         if (!result) {
@@ -241,15 +244,14 @@ public final class EmulatorDetector {
             || Build.PRODUCT.toLowerCase().contains("nox")
             || Build.SERIAL.toLowerCase().contains("nox");
 
-        if (result) return true;
-        result |= Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic");
-        if (result) return true;
-        result |= "google_sdk".equals(Build.PRODUCT);
+        if (!result) {
+            result = Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic");
+        }
         return result;
     }
 
     private boolean checkAdvanced() {
-        boolean result = checkTelephony()
+        return checkTelephony()
             || checkFiles(GENY_FILES,"Geny")
             || checkFiles(ANDY_FILES,"Andy")
             || checkFiles(NOX_FILES,"Nox")
@@ -257,7 +259,6 @@ public final class EmulatorDetector {
             || checkFiles(PIPES,"Pipes")
             || checkIp()
             || (checkQEmuProps() && checkFiles(X86_FILES,"X86"));
-        return result;
     }
 
     private boolean checkPackageName() {
@@ -292,7 +293,8 @@ public final class EmulatorDetector {
         TelephonyManager telephonyManager =
             (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
 
-        @SuppressLint("HardwareIds") String phoneNumber = telephonyManager.getLine1Number();
+        @SuppressLint("HardwareIds")
+        String phoneNumber = telephonyManager.getLine1Number();
 
         for (String number : PHONE_NUMBERS) {
             if (number.equalsIgnoreCase(phoneNumber)) {
@@ -308,7 +310,8 @@ public final class EmulatorDetector {
         TelephonyManager telephonyManager =
             (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
 
-        @SuppressLint("HardwareIds") String deviceId = telephonyManager.getDeviceId();
+        @SuppressLint("HardwareIds")
+        String deviceId = telephonyManager.getDeviceId();
 
         for (String known_deviceId : DEVICE_IDS) {
             if (known_deviceId.equalsIgnoreCase(deviceId)) {
@@ -323,7 +326,8 @@ public final class EmulatorDetector {
     private boolean checkImsi() {
         TelephonyManager telephonyManager =
             (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
-        @SuppressLint("HardwareIds") String imsi = telephonyManager.getSubscriberId();
+        @SuppressLint("HardwareIds")
+        String imsi = telephonyManager.getSubscriberId();
 
         for (String known_imsi : IMSI_IDS) {
             if (known_imsi.equalsIgnoreCase(imsi)) {
@@ -385,14 +389,15 @@ public final class EmulatorDetector {
 
         for (Property property : PROPERTIES) {
             String property_value = getProp(mContext, property.name);
-            if ((property.seek_value == null) && (property_value != null)) {
-                found_props++;
+            if (property_value != null) {
+                if (property.seek_value == null) {
+                    found_props++;
+                }
+                if ((property.seek_value != null)
+                        && (property_value.contains(property.seek_value))) {
+                    found_props++;
+                }
             }
-            if ((property.seek_value != null)
-                && (property_value.contains(property.seek_value))) {
-                found_props++;
-            }
-
         }
 
         if (found_props >= MIN_PROPERTIES_THRESHOLD) {

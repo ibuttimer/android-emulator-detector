@@ -1,0 +1,3 @@
+Ver 1.4.0
+Androidx support
+Target API 28
